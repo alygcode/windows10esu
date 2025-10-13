@@ -1,35 +1,74 @@
 <#
 .SYNOPSIS
-  Checks if Windows 10 ESU license is installed and activated.
-  Returns exit code 0 if ESU is compliant, 1 if not.
-  Designed for use as a detection script in Intune Proactive Remediations.
+  Detects if a Windows 10 ESU (Year 1/2/3) add-on license is installed and activated.
+  Exit 0 = Compliant (at least one ESU license has LicenseStatus = 1)
+  Exit 1 = Non-compliant or error.
 #>
 
-# Known ESU Activation IDs (Windows 10)
 $ActivationIDs = @(
-    "f520e45e-7413-4a34-a497-d2765967d094", # Year 1
-    "1043add5-23b1-4afb-9a0f-64343c8f3f8d", # Year 2
-    "83d49986-add3-41d7-ba33-87c7bfb5c0fb"  # Year 3
+  'f520e45e-7413-4a34-a497-d2765967d094', # Year 1
+  '1043add5-23b1-4afb-9a0f-64343c8f3f8d', # Year 2
+  '83d49986-add3-41d7-ba33-87c7bfb5c0fb'  # Year 3
 )
 
+function Get-LicenseStatusName {
+    param([int]$code)
+    switch ($code) {
+        0 {'Unlicensed'}
+        1 {'Licensed'}
+        2 {'OOBGrace'}
+        3 {'OOTGrace'}
+        4 {'NonGenuineGrace'}
+        5 {'Notification'}
+        6 {'ExtendedGrace'}
+        default {"Unknown($code)"}
+    }
+}
+
 try {
-    # Retrieve license details
-    $LicenseInfo = cscript.exe /nologo "$env:SystemRoot\system32\slmgr.vbs" /dlv 2>&1
+    Write-Host "=== ESU Detection (WMI) ==="
+    Write-Host "Activation IDs: $($ActivationIDs -join ', ')"
 
-    # Check for Licensed status
-    $IsLicensed = $LicenseInfo | Select-String "License Status:.*Licensed"
-    # Check for ESU Activation ID
-    $HasESU = $LicenseInfo | Select-String ($ActivationIDs -join "|")
+    try {
+        $licenses = Get-CimInstance -ClassName SoftwareLicensingProduct -ErrorAction Stop
+        Write-Host "Used Get-CimInstance"
+    }
+    catch {
+        Write-Host "Get-CimInstance failed: $($_.Exception.Message) - falling back to Get-WmiObject"
+        $licenses = Get-WmiObject -Class SoftwareLicensingProduct -ErrorAction Stop
+    }
 
-    if ($IsLicensed -and $HasESU) {
-        Write-Host "Compliant: ESU license is installed and activated."
+    $filtered = $licenses | Where-Object { $_.PartialProductKey }
+
+    # Find ESU products
+    $esu = $filtered |
+        Where-Object { $_.ActivationID -and ($ActivationIDs -contains $_.ActivationID.ToLower()) }
+
+    if (-not $esu) {
+        Write-Host "No ESU Activation IDs found among installed licenses."
+    } else {
+        Write-Host "Found ESU entries:"
+        $esu | ForEach-Object {
+            Write-Host ("  Name: {0}" -f $_.Name)
+            Write-Host ("  ActivationID: {0}" -f $_.ActivationID)
+            Write-Host ("  LicenseStatus: {0} ({1})" -f $_.LicenseStatus, (Get-LicenseStatusName $_.LicenseStatus))
+            Write-Host ("  PartialProductKey: {0}" -f $_.PartialProductKey)
+            Write-Host ""
+        }
+    }
+
+    $licensedESU = $esu | Where-Object { $_.LicenseStatus -eq 1 }
+
+    if ($licensedESU) {
+        Write-Host "Result: COMPLIANT (At least one ESU license is fully Licensed)."
         exit 0
     } else {
-        Write-Host "Non-Compliant: ESU license missing or not activated."
+        Write-Host "Result: NON-COMPLIANT (No ESU license in Licensed state)."
         exit 1
     }
 }
 catch {
-    Write-Host "Error: $($_.Exception.Message)"
+    Write-Host "Error during detection: $($_.Exception.Message)"
+    Write-Host "Stack: $($_.ScriptStackTrace)"
     exit 1
 }
