@@ -40,7 +40,7 @@ Windows 10 Extended Security Updates (ESU) provide continued security updates fo
 - Handles multiple ESU years (Year 1, 2, and 3)
 
 **Configuration Required:**
-Before deploying this script, you must replace the placeholder hashtable with your actual ESU product keys. The hashtable should use the ESU Activation IDs as keys and your product keys as values:
+Before deploying this script, you must modify the hashtable in the script to use the correct ESU Activation IDs as keys and your actual ESU product keys as values:
 
 ```powershell
 $ESUProductKeys = @{
@@ -50,7 +50,10 @@ $ESUProductKeys = @{
 }
 ```
 
-**Note:** Replace the `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX` placeholder values with your organization's actual ESU product keys for each year. Keep the Activation IDs as the keys.
+**Important:** 
+- Replace the entire placeholder hashtable in the script (currently using `<ESU_Year1_Product_Key>` style placeholders)
+- Use the ESU Activation IDs shown above as the keys (these are the same IDs used by the discovery script)
+- Replace the `XXXXX-XXXXX-XXXXX-XXXXX-XXXXX` values with your organization's actual ESU product keys for each year
 
 ## Prerequisites
 
