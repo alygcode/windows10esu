@@ -6,9 +6,9 @@
 
 # Replace with your actual ESU product keys for each year
 $ESUProductKeys = @{
-    "f520e45e-7413-4a34-a497-d2765967d094" = "<ESU_Year1_Product_Key>"
-    "1043add5-23b1-4afb-9a0f-64343c8f3f8d" = "<ESU_Year2_Product_Key>"
-    "83d49986-add3-41d7-ba33-87c7bfb5c0fb" = "<ESU_Year3_Product_Key>"
+    "<ESU_Year1_Product_Key>" = "<ESU_Year1_Product_Key>"
+    "<ESU_Year2_Product_Key>" = "<ESU_Year2_Product_Key>"
+    "<ESU_Year3_Product_Key>" = "<ESU_Year3_Product_Key>"
 }
 
 foreach ($ActivationID in $ESUProductKeys.Keys) {
