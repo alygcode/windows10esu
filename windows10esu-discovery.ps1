@@ -7,7 +7,7 @@
 
 $ActivationIDs = @(
   'f520e45e-7413-4a34-a497-d2765967d094', # Year 1
-  '1043add5-23b1-4afb-9a0f-64343c8f3f8d', # Year 2
+  '1043add5d-23b1-4afb-9a0f-64343c8f3f8d', # Year 2
   '83d49986-add3-41d7-ba33-87c7bfb5c0fb'  # Year 3
 )
 
@@ -38,21 +38,33 @@ try {
         $licenses = Get-WmiObject -Class SoftwareLicensingProduct -ErrorAction Stop
     }
 
-    $filtered = $licenses | Where-Object { $_.PartialProductKey }
+    Write-Host "Total licenses found: $($licenses.Count)"
 
-    # Find ESU products
-    $esu = $filtered |
-        Where-Object { $_.ActivationID -and ($ActivationIDs -contains $_.ActivationID.ToLower()) }
+    # Find ESU products - removed the PartialProductKey filter
+    $esu = $licenses |
+        Where-Object { 
+            $_.ActivationID -and 
+            ($ActivationIDs -contains $_.ActivationID.ToString().ToLower()) 
+        }
 
     if (-not $esu) {
         Write-Host "No ESU Activation IDs found among installed licenses."
+        Write-Host "Checking all licenses with ActivationID set for debugging..."
+        
+        $licensesWithActivationID = $licenses | Where-Object { $_.ActivationID }
+        Write-Host "Found $($licensesWithActivationID.Count) licenses with ActivationID"
+        
+        $licensesWithActivationID | Select-Object -First 5 | ForEach-Object {
+            Write-Host ("  Name: {0}, ActivationID: {1}" -f $_.Name, $_.ActivationID)
+        }
     } else {
-        Write-Host "Found ESU entries:"
+        Write-Host "Found $($esu.Count) ESU entries:"
         $esu | ForEach-Object {
             Write-Host ("  Name: {0}" -f $_.Name)
             Write-Host ("  ActivationID: {0}" -f $_.ActivationID)
             Write-Host ("  LicenseStatus: {0} ({1})" -f $_.LicenseStatus, (Get-LicenseStatusName $_.LicenseStatus))
             Write-Host ("  PartialProductKey: {0}" -f $_.PartialProductKey)
+            Write-Host ("  ApplicationID: {0}" -f $_.ApplicationID)
             Write-Host ""
         }
     }
