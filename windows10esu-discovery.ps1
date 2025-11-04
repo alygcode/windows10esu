@@ -9,7 +9,7 @@ $ActivationIDs = @(
   'f520e45e-7413-4a34-a497-d2765967d094', # Year 1
   '1043add5d-23b1-4afb-9a0f-64343c8f3f8d', # Year 2
   '83d49986-add3-41d7-ba33-87c7bfb5c0fb'  # Year 3
-)
+) | ForEach-Object { $_.ToLower() }  # normalize case
 
 function Get-LicenseStatusName {
     param([int]$code)
@@ -26,7 +26,7 @@ function Get-LicenseStatusName {
 }
 
 try {
-    Write-Host "=== ESU Detection (WMI) ==="
+    Write-Host "=== ESU Detection (WMI/CIM) ==="
     Write-Host "Activation IDs: $($ActivationIDs -join ', ')"
 
     try {
@@ -35,16 +35,29 @@ try {
     }
     catch {
         Write-Host "Get-CimInstance failed: $($_.Exception.Message) - falling back to Get-WmiObject"
-        $licenses = Get-WmiObject -Class SoftwareLicensingProduct -ErrorAction Stop
+        try {
+            $licenses = Get-WmiObject -Class SoftwareLicensingProduct -ErrorAction Stop
+            Write-Host "Used Get-WmiObject"
+        }
+        catch {
+            Write-Host "Get-WmiObject also failed: $($_.Exception.Message)"
+            exit 1
+        }
     }
 
-    Write-Host "Total licenses found: $($licenses.Count)"
+    if (-not $licenses) {
+        Write-Host "No licenses returned from WMI/CIM query. Ensure you have permission and that the class exists on this system."
+        exit 1
+    }
 
-    # Find ESU products - removed the PartialProductKey filter
+    Write-Host "Total licenses found: $(@($licenses).Count)"
+
+    # Find ESU products
     $esu = $licenses |
-        Where-Object { 
-            $_.ActivationID -and 
-            ($ActivationIDs -contains $_.ActivationID.ToString().ToLower()) 
+        Where-Object {
+            if (-not $_.ActivationID) { return $false }
+            $aid = $_.ActivationID.ToString().ToLower()
+            return ($ActivationIDs -contains $aid)
         }
 
     if (-not $esu) {
@@ -52,16 +65,17 @@ try {
         Write-Host "Checking all licenses with ActivationID set for debugging..."
         
         $licensesWithActivationID = $licenses | Where-Object { $_.ActivationID }
-        Write-Host "Found $($licensesWithActivationID.Count) licenses with ActivationID"
+        Write-Host "Found $(@($licensesWithActivationID).Count) licenses with ActivationID"
         
-        $licensesWithActivationID | Select-Object -First 5 | ForEach-Object {
-            Write-Host ("  Name: {0}, ActivationID: {1}" -f $_.Name, $_.ActivationID)
+        $licensesWithActivationID | Select-Object -First 10 | ForEach-Object {
+            Write-Host ("  Name: {0}, ActivationID: {1}, LicenseStatus: {2}" -f $_.Name, $_.ActivationID, $_.LicenseStatus)
         }
     } else {
-        Write-Host "Found $($esu.Count) ESU entries:"
+        Write-Host "Found $(@($esu).Count) ESU entries:"
         $esu | ForEach-Object {
+            $aid = $_.ActivationID.ToString()
             Write-Host ("  Name: {0}" -f $_.Name)
-            Write-Host ("  ActivationID: {0}" -f $_.ActivationID)
+            Write-Host ("  ActivationID: {0}" -f $aid)
             Write-Host ("  LicenseStatus: {0} ({1})" -f $_.LicenseStatus, (Get-LicenseStatusName $_.LicenseStatus))
             Write-Host ("  PartialProductKey: {0}" -f $_.PartialProductKey)
             Write-Host ("  ApplicationID: {0}" -f $_.ApplicationID)
