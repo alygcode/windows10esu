@@ -7,7 +7,7 @@
 
 $ActivationIDs = @(
   'f520e45e-7413-4a34-a497-d2765967d094', # Year 1
-  '1043add5d-23b1-4afb-9a0f-64343c8f3f8d', # Year 2
+  '1043add5-23b1-4afb-9a0f-64343c8f3f8d', # Year 2
   '83d49986-add3-41d7-ba33-87c7bfb5c0fb'  # Year 3
 ) | ForEach-Object { $_.ToLower() }  # normalize case
 
